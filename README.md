@@ -29,6 +29,7 @@ python main.py
 
 v 0.0.1: The foundational AI Agent structure. Capable of conversation and executing CMD commands.
 ⚠️ Note: Currently includes only basic protection against dangerous commands with no strict permission limits. Use with caution.
+v 0.0.2: The first stable version! At least it could be used. File tools added in this version.
 
 ## Acknowledgments、
 
