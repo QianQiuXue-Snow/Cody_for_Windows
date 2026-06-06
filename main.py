@@ -11,12 +11,12 @@ if __name__ == "__main__":
     
     while True:
         try:
-            query = input("\033[36mCody v0.0.1 >> \033[0m")
+            query = input("\033[36mCody v0.0.2 >> \033[0m")
         except (EOFError, KeyboardInterrupt):
             print("\n\033[33m检测到退出信号，正在终止...\033[0m")
             break
         
-        if query.strip().lower() in ("q", "exit"):
+        if query.strip().lower() in ("q", "exit", ""):
             print("\033[33m正在退出...\033[0m")
             break
         
@@ -35,15 +35,15 @@ if __name__ == "__main__":
         if history:
             last_msg = history[-1]
             if last_msg.get("role") == "assistant":
-                content = last_msg.get("content", "")
-                if isinstance(content, list):
-                    for block in content:
+                response_content = last_msg.get("content", "")
+                if isinstance(response_content, list):
+                    for block in response_content:
                         if hasattr(block, "text"):
                             print(block.text)
                         elif isinstance(block, dict) and block.get("type") == "text":
                             print(block.get("text", ""))
-                elif isinstance(content, str):
-                    print(content)
+                elif isinstance(response_content, str):
+                    print(response_content)
     
     print("\033[32m=== 会话结束 ===\033[0m")
     
