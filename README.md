@@ -11,7 +11,7 @@ On the other hand, "Cody" is also a tribute to **Clone Commander Cody** from *St
 
 ## Build & Run
 
-Please configure your API key in a .env file or set it as a environment variable.
+Please configure your API key in a .env file or set OPENAI_API_KEY as a environment variable.
 
 ```cmd
 # Create the runtime environment
@@ -31,6 +31,12 @@ v 0.0.1: The foundational AI Agent structure. Capable of conversation and execut
 ⚠️ Note: Currently includes only basic protection against dangerous commands with no strict permission limits. Use with caution.
 
 v 0.0.2: The first stable version! At least it could be used. File tools added in this version.
+
+v 0.1.0:
+-- Workflow Scheduling Management: Introduced a new workflow arrangement and scheduling management feature to enhance task execution efficiency.
+-- AgentCore Refactoring: Completely refactored the AgentCore module to optimize the underlying implementation logic.
+-- Configuration Decoupling: Decoupled the configuration files from the main program, improving flexibility and maintainability.
+-- Optional Config Encryption: Added an optional encryption feature for configuration files to further enhance the security of sensitive data.
 
 ## Acknowledgments、
 

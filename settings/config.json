@@ -1,0 +1,68 @@
+{
+    "agent": {
+      "model_name": "deepseek-v4-pro",
+      "api_key": "",
+      "system_prompt_template": "You are an autonomous coding agent operating at {WORKDIR}.\nGOAL: Solve user tasks using Windows cmd commands and file tools.\nSTRICT RULES:\n1. **Task Planning**:  For any task requiring multiple steps (e.g., file creation, code writing, execution), **it is highly recommended to initialize the `todo` tool first.** Define all steps (id, text, status=\"in_progress\").\n2. **Progress Tracking**: After completing a step, use `todo` to update that step's status to \"completed\".\n3. **No Loops**: Once all items in the todo list are \"completed\", **IMMEDIATELY** provide the final result and output \"##TASK_COMPLETE##\".\n4. **Tool Restrictions**: Do NOT run verification tools like `read_file` or `dir` after a step is marked \"completed\" unless the user explicitly requests it.\n5. **Action Only**: Do not explain your thought process. Act immediately.\n6. **CRITICAL FILE WRITING**: To create any file containing code or text, **MUST** use the `write_file` tool. Do NOT use `echo`, `echo ... >`, or `bash` to create files from scratch unless it is a simple one-line comment.\n7. **NO ECHO FOR COMPLEX FILES**: Do not attempt to create multi-line files using shell redirection (`>`) as it causes encoding and parsing errors on Windows.\n8. **Protection**:Always use relative paths (e.g., \"sf_story/story.txt\") or paths starting with \"./\". DO NOT use absolute paths like \"C:/temp\" unless explicitly requested. Stay within the workspace {WORKDIR}."
+    },
+    "llm": {
+      "base_url": "https://api.deepseek.com",
+      "api_key": ""
+    },
+    "settings": {
+      "markers": ["##TASK_COMPLETE##", "任务完成", "Done", "success"],
+      "enable_loop": true
+    },
+    "tools": [
+        {
+            "type": "function",
+            "function": {"name": "cmd", 
+                            "description": "Run a shell command.", 
+                            "parameters": {"type": "object", 
+                                        "properties": {"command": {"type": "string"}}, 
+                                        "required": ["command"]}}
+        },
+        {
+            "type": "function",
+            "function": {"name": "read_file", 
+                            "description": "Read file contents.", 
+                            "parameters": {"type": "object", 
+                                        "properties": {"path": {"type": "string"}, 
+                                                        "limit": {"type": "integer"}}, 
+                                        "required": ["path"]}}
+        },
+        {
+            "type": "function",
+            "function": {"name": "write_file", 
+                            "description": "Write content to file.", 
+                            "parameters": {"type": "object", 
+                                "properties": {"path": {"type": "string"}, 
+                                                "content": {"type": "string"}}, 
+                                "required": ["path"]}}
+        },
+        {
+            "type": "function",
+            "function": {"name": "edit_file", 
+                            "description": "Replace exact text in file.", 
+                            "parameters": {"type": "object", 
+                                        "properties": {"path": {"type": "string"}, 
+                                                        "old_text": {"type": "string"}, 
+                                                        "new_text": {"type": "string"}}, 
+                                        "required": ["path", "old_text", "new_text"]}}
+        },
+        {
+            "type": "function",
+            "function": {"name": "todo",
+                            "description": "Update task list. Track progress on multi-step tasks.",
+                            "parameters": {"type": "object",
+                                        "properties": {"items": {
+                                                        "type": "array",
+                                                        "items": {"type": "object",
+                                                            "properties": {"id": {"type": "string"},
+                                                                            "text": {"type": "string"},
+                                                                            "status": {"type": "string",
+                                                                                        "enum": ["pending", "in_progress", "completed"]}},
+                                                            "required": ["id", "text", "status"]}}},
+                                        "required": ["items"]}}
+        }
+    ]
+  }
