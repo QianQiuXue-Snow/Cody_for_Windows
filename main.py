@@ -1,17 +1,17 @@
 from dotenv import load_dotenv
-from AgentLoop import agent_core
+from agent.Agent import Agent
 
 if __name__ == "__main__":
     load_dotenv(override=True)
     
     history = []
-    ac = agent_core()
+    ac = Agent()
     
     print("\033[32m=== Agent 已启动，输入 q/exit 退出 ===\033[0m")
     
     while True:
         try:
-            query = input("\033[36mCody v0.0.2 >> \033[0m")
+            query = input("\033[36mCody v0.1.0 >> \033[0m")
         except (EOFError, KeyboardInterrupt):
             print("\n\033[33m检测到退出信号，正在终止...\033[0m")
             break
