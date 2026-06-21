@@ -3,25 +3,11 @@ import json
 import time
 
 from agent.AgentCore import AgentCore
-from agent.SubAgent import SubAgent
 
-def singleton(cls):
-    instances = {}
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-    return get_instance
-
-@singleton
-class Agent(AgentCore):
+class SubAgent(AgentCore):
     def __init__(self):
-        super().__init__(agent_type="Agent")
-        self.PROMOTE = self.config.system_prompt
-        self.TOOL_HANDLERS["task"] = lambda **kw: self.subagent.run_subagent(kw["prompt"])
-        self.TOOLS = self.TOOLS + self.config.task_tool
-        self.subagent = SubAgent()
-        # 日志记录器
+        super().__init__(agent_type="SubAgent")
+        self.PROMOTE = self.config.subagent_system_prompt
         self._logger = None
         
     @property
@@ -33,27 +19,22 @@ class Agent(AgentCore):
             except ImportError:
                 pass
         return self._logger
-        
-    def agent_loop(self, messages: list):
-        self.last_tool_key = None     # 上一次的 (tool_name, args)组合
-        self.consecutive_duplicates = 0
-        self.rounds_since_todo = 0
-        self.last_scanned_list_hash = None
-        
-        while True:
-            
+
+    def run_subagent(self, prompt: str) -> str:
+        sub_messages = [{"role": "system", "content": prompt}]
+        for _ in range(30):
             try:
                 start_time = time.time()
                 response = self.client.chat.completions.create(
                     model=self.MODEL,
-                    messages=[{"role": "system", "content": self.PROMOTE}] + messages,
+                    messages=[{"role": "system", "content": self.PROMOTE}] + sub_messages,
                     tools=self.TOOLS,
                     max_tokens=8000,
                     tool_choice="auto",
                 )
                 response_time = time.time() - start_time
                 
-                # 记录API调用指标
+                # 记录SubAgent API调用指标
                 if self.logger:
                     try:
                         usage = response.usage
@@ -63,45 +44,40 @@ class Agent(AgentCore):
                             input_tokens=input_tokens,
                             output_tokens=output_tokens,
                             response_time=response_time,
-                            agent_type="Agent"
+                            agent_type="SubAgent"
                         )
                     except:
                         self.logger.record_request(
                             input_tokens=0,
                             output_tokens=0,
                             response_time=response_time,
-                            agent_type="Agent"
+                            agent_type="SubAgent"
                         )
             except Exception as e:
-                print(f"\033[31m API Error:\033[0m {e}")
+                print(f"\033[31m SubAgent API Error:\033[0m {e}")
                 self.enable_loop = False
-                # 诊断：打印最后几条消息（查看 tool_calls 是否配对）
-                for i, m in enumerate(messages[-6:]):
-                    tc = m.get("tool_calls", "N/A")
-                    tc_ids = [t.id for t in tc] if tc != "N/A" and tc else "N/A"
-                    print(f"  msg[{len(messages)-6+i}] role={m['role']}, tool_calls={tc_ids}")
                 return
             
-            check_result = self.response_check(response, messages, False)
+            check_result = self.response_check(response, sub_messages, True)
             if check_result is False:
                 return ""
             elif check_result is not None:
                 return check_result
             
-            msg = response.choices[0].message
-            if not msg.tool_calls:
+            sub_msg = response.choices[0].message
+            if not sub_msg.tool_calls:
                 continue
             
             results = []
             used_todo = False
             is_duplicate = False
-            for tool_call in msg.tool_calls:
+            for tool_call in sub_msg.tool_calls:
                 tool_name = tool_call.function.name
                 try:
                     args = json.loads(tool_call.function.arguments)
                 except:
                     args = {}
-                    
+                
                 if self.check_duplicate_operation(tool_name, args):
                     is_duplicate = True
                     results.append({
@@ -112,19 +88,18 @@ class Agent(AgentCore):
                     })
                     continue
                 
-                # 工具执行
                 try:
                     handler = self.TOOL_HANDLERS.get(tool_name)
                     if handler:
                         output = handler(**args)
-                        print(f"\033[33m$> {tool_name}\033[0m executed: {output[:1000]}")
+                        print(f"\033[33m$> {tool_name}\033[0m executed: {output[:200]}")
                     else:
                         output = f"\033[31m$ Unknown tool:\033[0m {tool_name}"
                     results.append({
                         "role": "tool",
                         "tool_call_id": tool_call.id,
                         "name": tool_name,
-                        "content": str(output)
+                        "content": str(output)[:5000]
                     })
                 except Exception as e:
                     error_msg = f"\033[31m$ Runtime Error:\033[0m {str(e)}"
@@ -134,29 +109,14 @@ class Agent(AgentCore):
                         "name": tool_name,
                         "content": error_msg
                     })
-                if tool_name == "todo":
-                    used_todo = True
-
-            
             if results:
-                messages.extend(results)
-
-            if is_duplicate:
-                # 注入停止提示
-                messages.append({
-                    "role": "user", 
-                    "content": "WARNING: You attempted to scan the directory repeatedly. STOP SCANNING immediately. Start reading files or output analysis. Do not run 'dir' again."
-                })
-                print("\033[32m$ Agent stuck in loop, stopping. Warning injected.\033[0m")
-                self.enable_loop = False
-                return "STOPPED: Repeated command detected. Warning injected."
-            
-            self.rounds_since_todo = 0 if used_todo else self.rounds_since_todo + 1
-            if self.rounds_since_todo >= 3:
-                messages.append({
-                    "role": "user",
-                    "content": "<SYSTEM REMINDER> You have not updated your todo list in 3 rounds. Please update your tasks (status='pending', 'in_progress', 'completed') to track progress."
-                })
-                self.rounds_since_todo = 0
-                
-        return "Session Ended"
+                sub_messages.extend(results)
+        
+        # 处理返回值
+        if response.content:
+            if isinstance(response.content, list):
+                return "".join(b.text for b in response.content if hasattr(b, "text")) or "(no summary)"
+            else:
+                return str(response.content) if response.content else "(no summary)"
+        else:
+            return "(no summary)"
