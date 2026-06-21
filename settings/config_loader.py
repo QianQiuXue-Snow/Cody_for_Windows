@@ -157,10 +157,19 @@ class ConfigLoader:
     @property
     def tools(self):
         return self.raw_config.get("tools", [])
+    
+    @property
+    def task_tool(self):
+        return self.raw_config.get("task_tool", [])
 
     @property
     def system_prompt(self) -> str:
         raw = self.raw_config.get("agent", {}).get("system_prompt_template", "")
+        return raw.replace("{WORKDIR}", str(self.workdir))
+    
+    @property
+    def subagent_system_prompt(self) -> str:
+        raw = self.raw_config.get("agent", {}).get("subagent_system_prompt_template", "")
         return raw.replace("{WORKDIR}", str(self.workdir))
 
     @property

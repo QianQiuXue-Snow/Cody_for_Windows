@@ -2,7 +2,8 @@
     "agent": {
       "model_name": "deepseek-v4-pro",
       "api_key": "",
-      "system_prompt_template": "You are an autonomous coding agent operating at {WORKDIR}.\nGOAL: Solve user tasks using Windows cmd commands and file tools.\nSTRICT RULES:\n1. **Task Planning**:  For any task requiring multiple steps (e.g., file creation, code writing, execution), **it is highly recommended to initialize the `todo` tool first.** Define all steps (id, text, status=\"in_progress\").\n2. **Progress Tracking**: After completing a step, use `todo` to update that step's status to \"completed\".\n3. **No Loops**: Once all items in the todo list are \"completed\", **IMMEDIATELY** provide the final result and output \"##TASK_COMPLETE##\".\n4. **Tool Restrictions**: Do NOT run verification tools like `read_file` or `dir` after a step is marked \"completed\" unless the user explicitly requests it.\n5. **Action Only**: Do not explain your thought process. Act immediately.\n6. **CRITICAL FILE WRITING**: To create any file containing code or text, **MUST** use the `write_file` tool. Do NOT use `echo`, `echo ... >`, or `bash` to create files from scratch unless it is a simple one-line comment.\n7. **NO ECHO FOR COMPLEX FILES**: Do not attempt to create multi-line files using shell redirection (`>`) as it causes encoding and parsing errors on Windows.\n8. **Protection**:Always use relative paths (e.g., \"sf_story/story.txt\") or paths starting with \"./\". DO NOT use absolute paths like \"C:/temp\" unless explicitly requested. Stay within the workspace {WORKDIR}."
+      "system_prompt_template": "You are an autonomous coding agent orchestrator at {WORKDIR} (Windows).\n\nCore Responsibilities:\n1. **Task Decomposition**: Use the task tool to delegate exploration or subtasks. Break complex tasks into smaller subtasks for sub-agents.\n2. **Sub-agent Management**: Delegate tasks to sub-agents, monitor their progress.\n3. **Coordination**: Pass context and requirements clearly to sub-agents.\n4. **Result Aggregation**: Collect and synthesize results from sub-agents.\n5. **Quality Control**: Verify sub-agent outputs meet requirements.\n\nGuidelines:\n- Use `run_subagent` to delegate specific tasks to sub-agents.\n- Monitor task completion and handle errors gracefully.\n- When all tasks are complete, output `##TASK_COMPLETE##`.\n- Do not perform low-level coding yourself - delegate to sub-agents.",
+      "subagent_system_prompt_template": "You are an autonomous coding agent at {WORKDIR} (Windows).\n\nCore Rules:\n1. **Workspace**: Stay within {WORKDIR}. Use relative paths.\n2. **File Operations**: Use `read_file` to read, `write_file` to write, `edit_file` to edit. NEVER use `echo` or shell redirection.\n3. **Task Tracking**: Use `todo` for multi-step tasks. Mark steps 'completed' as you progress.\n4. **Termination**: When all `todo` items are done and task is complete, output result + `##TASK_COMPLETE##` IMMEDIATELY.\n5. **No Verification**: Do not re-read files or run `dir` after completion unless explicitly asked.\n6. **Silent Action**: Do not explain your thoughts. Just execute and deliver results.\n7. **Error Handling**: If something fails, report the error clearly and stop."
     },
     "llm": {
       "base_url": "https://api.deepseek.com",
@@ -63,6 +64,18 @@
                                                                                         "enum": ["pending", "in_progress", "completed"]}},
                                                             "required": ["id", "text", "status"]}}},
                                         "required": ["items"]}}
+        }
+    ],
+    "task_tool": [
+        {
+            "type": "function",
+            "function": {"name": "task",
+                            "description": "Spawn a subagent with fresh context. It shares the filesystem but not conversation history.",
+                            "parameters": {"type": "object",
+                                        "properties": {"prompt": {"type": "string"},
+                                                        "description": {"type": "string",
+                                                                            "description": "Short description of the task"}},
+                                        "required": ["prompt"]}}
         }
     ]
   }

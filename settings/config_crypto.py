@@ -132,9 +132,16 @@ def encrypt_json_file(input_file: str, password: str, salt: bytes = None):
     if salt is None:
         salt = os.urandom(16)
     
+    encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'ansi', 'cp1252']
+    
     # 读取原始配置
-    with open(input_file, 'r', encoding='utf-8') as f:
-        config_data = f.read()
+    for encoding in encodings:
+        try:
+            with open(input_file, 'r', encoding=encoding) as f:
+                config_data = f.read()
+            break
+        except UnicodeDecodeError:
+            continue
     
     # 创建加密器
     fernet = create_fernet_key(password, salt)
@@ -201,4 +208,6 @@ if __name__ == "__main__":
             print(f"未知命令: {command}")
             sys.exit(1)
     else:
-        encrypt_json_file("H:\\yy\\yytools\\Agent\\v1.0\\settings\\config.json", "Cti86928026@")
+        current_dir = Path(__file__).parent
+        config_path = current_dir / "config.json"
+        encrypt_json_file(str(config_path), "123456")

@@ -38,6 +38,10 @@ v 0.1.0:
 -- Configuration Decoupling: Decoupled the configuration files from the main program, improving flexibility and maintainability.
 -- Optional Config Encryption: Added an optional encryption feature for configuration files to further enhance the security of sensitive data.
 
+v 0.1.1
+-- Introduced sub-agent task scheduling to support complex multi-task orchestration.
+-- Enhanced continuous logging mechanism and added log rollback capabilities for better traceability.
+
 ## Acknowledgments、
 
 Special thanks to [**Learn Claude Code**]((https://learn.shareai.run)). This project was developed and refined through step-by-step learning based on their tutorial.

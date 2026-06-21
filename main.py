@@ -1,6 +1,12 @@
 from dotenv import load_dotenv
 from agent.Agent import Agent
 
+# 尝试导入日志管理器
+try:
+    from utils.LogManager import logger
+except ImportError:
+    logger = None
+
 if __name__ == "__main__":
     load_dotenv(override=True)
     
@@ -11,7 +17,7 @@ if __name__ == "__main__":
     
     while True:
         try:
-            query = input("\033[36mCody v0.1.0 >> \033[0m")
+            query = input("\033[36mCody v0.1.1 >> \033[0m")
         except (EOFError, KeyboardInterrupt):
             print("\n\033[33m检测到退出信号，正在终止...\033[0m")
             break
@@ -44,6 +50,11 @@ if __name__ == "__main__":
                             print(block.get("text", ""))
                 elif isinstance(response_content, str):
                     print(response_content)
+    
+    # 打印会话摘要
+    if logger:
+        logger.print_summary()
+        logger.save_metrics()
     
     print("\033[32m=== 会话结束 ===\033[0m")
     

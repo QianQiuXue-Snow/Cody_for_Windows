@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from abc import ABC, abstractmethod
+import time
 from typing import Union
 from pathlib import Path
 from openai import OpenAI
@@ -11,9 +12,24 @@ from openai import OpenAI
 from tools.TodoManager import TodoManager
 from settings.config_loader import config
 
+# 导入回滚日志管理器
+try:
+    from utils.RollbackLogger import get_rollback_logger
+except ImportError:
+    get_rollback_logger = None
+
+# 避免循环导入 - 延迟导入LogManager
+def _get_logger():
+    try:
+        from utils.LogManager import logger
+        return logger
+    except ImportError:
+        return None
+
 class AgentCore(ABC):
-    def __init__(self):
+    def __init__(self, agent_type: str = "Agent"):
         self.config = config
+        self.agent_type = agent_type
         self.WORKDIR = Path.cwd()
         api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
         
@@ -35,6 +51,28 @@ class AgentCore(ABC):
         # 定义终止标志
         self.MARKERS = config.markers
         self.enable_loop = config.enable_loop
+        
+        # 日志记录器（延迟初始化）
+        self._logger = None
+        
+        # 回滚日志管理器
+        self._rollback_logger = None
+        
+        # 循环控制状态
+        self.last_tool_key = None
+        self.consecutive_duplicates = 0
+        
+    @property
+    def logger(self):
+        if self._logger is None:
+            self._logger = _get_logger()
+        return self._logger
+    
+    @property
+    def rollback_logger(self):
+        if self._rollback_logger is None and get_rollback_logger:
+            self._rollback_logger = get_rollback_logger()
+        return self._rollback_logger
         
     def safe_path(self, p: str) -> Path:
             # 禁止相对路径中包含 .. （防止目录遍历攻击）
@@ -58,6 +96,12 @@ class AgentCore(ABC):
             return path
 
     def run_cmd(self, command: str) -> str:
+        start_time = time.time()
+        
+        # 记录工具调用
+        if self.logger:
+            self.logger.info(f"Executing bash: {command[:50]}...", tool="bash")
+        
         # 禁止执行可能导致卡死或无法非交互式处理的命令
         dangerous_patterns = [
             r'\btype\s+\*$',         # 禁止 type * (输出所有文件内容)
@@ -123,6 +167,9 @@ class AgentCore(ABC):
     def run_write(self, path: str, content: str) -> str:
         try:
             fp = self.safe_path(path)
+            # 记录操作以便回滚
+            if self.rollback_logger:
+                self.rollback_logger.record_write(str(fp), content)
             fp.parent.mkdir(parents=True, exist_ok=True)
             fp.write_text(content, encoding='utf-8')
             return f"\033[32m File created successfully at {path}. \
@@ -145,6 +192,11 @@ class AgentCore(ABC):
             
             if old_text not in content:
                 return f"\033[31m Error:\033[0m text '{old_text[:20]}...' not found in {path}"
+            
+            # 记录操作以便回滚
+            if self.rollback_logger:
+                self.rollback_logger.record_edit(str(fp), old_text, new_text)
+            
             content = fp.read_text()
             fp.write_text(content.replace(old_text, new_text, 1))
             return f"Edited {path}"
